@@ -21,6 +21,7 @@
     .stats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)}.stat{padding:20px 24px;border-right:1px solid var(--line)}.stat:last-child{border:0}
     .stat b{display:block;font-size:25px;letter-spacing:-1px;margin-top:5px}.stat small{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase}
     .actions{padding:18px 24px;display:flex;gap:10px;align-items:center}.btn{border:0;border-radius:7px;padding:12px 17px;font-weight:800;font-size:14px;cursor:pointer}.btn.primary{background:var(--orange);color:#fff}.btn.secondary{background:#f1f3f4;color:var(--ink)}.btn:disabled{opacity:.55;cursor:not-allowed}
+    .story-box{display:none;margin:0 24px 22px;padding:16px;border:1px solid #ffd7c7;border-radius:10px;background:#fff9f6}.story-box.show{display:block}.story-box p{font-size:13px;color:var(--muted);margin:0 0 12px}.upload{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px}.upload input{display:block;margin-top:6px;font:inherit;font-size:12px}.story-actions{display:flex;gap:9px;align-items:center}.story-actions a{font-size:13px;font-weight:800;color:var(--orange);text-decoration:none;display:none}
     #notice{font-size:13px;color:var(--muted);padding:0 24px 20px;min-height:36px}.side{display:grid;gap:24px}.summary{padding:22px 24px}.total{font-size:43px;font-weight:900;letter-spacing:-2px;margin:8px 0 3px}.total span{font-size:19px;letter-spacing:0}
     .history-head{padding:20px 22px 12px;display:flex;justify-content:space-between}.activity{padding:15px 22px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center}.icon{width:35px;height:35px;border-radius:50%;background:#fff1eb;color:var(--orange);display:grid;place-items:center;font-weight:900}.activity b{font-size:14px}.activity small{display:block;font-size:12px;color:var(--muted);margin-top:3px}.km{margin-left:auto;font-weight:800;font-size:14px}.empty{padding:20px 22px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
     .leaflet-control-attribution{font-size:10px!important}@media(max-width:780px){header{padding:0 18px}main{margin:20px auto;grid-template-columns:1fr;padding:0 12px}.card-head{padding:18px}h1{font-size:25px}#map{height:285px}.stat{padding:16px 12px}.stat b{font-size:20px}.actions{padding:15px 18px;flex-wrap:wrap}.actions .btn{flex:1}#notice{padding:0 18px 17px}}
@@ -33,8 +34,9 @@
       <div class="card-head"><div><div class="eyebrow">Rekam aktivitas</div><h1 id="activityTitle">Lari</h1></div><select id="sport"><option>Lari</option><option>Jalan</option><option>Sepeda</option></select></div>
       <div id="map"></div><div class="map-hint" id="mapHint">Izinkan lokasi untuk melihat rute GPS Anda di peta.</div>
       <div class="stats"><div class="stat"><small>Durasi</small><b id="duration">00:00</b></div><div class="stat"><small>Jarak</small><b id="distance">0.00 km</b></div><div class="stat"><small>Pace</small><b id="pace">—</b></div></div>
-      <div class="actions"><button class="btn primary" id="start">Mulai GPS</button><button class="btn secondary" id="save">Simpan</button><button class="btn secondary" id="reset">Reset</button></div>
+      <div class="actions"><button class="btn primary" id="start">Mulai GPS</button><button class="btn secondary" id="save">Simpan</button><button class="btn secondary" id="story">Buat Story</button><button class="btn secondary" id="reset">Reset</button></div>
       <div id="notice">Siap merekam aktivitas Anda.</div>
+      <div class="story-box" id="storyBox"><p>Tambahkan foto (opsional), lalu buat gambar Story vertikal berisi statistik dan rute aktivitas Anda.</p><label class="upload">Foto latar untuk Story<input id="photo" type="file" accept="image/*"></label><div class="story-actions"><button class="btn primary" id="generateStory">Buat gambar Story</button><a id="downloadStory" download="sport-story.png">Unduh gambar PNG</a></div></div>
     </section>
     <aside class="side">
       <section class="card summary"><div class="eyebrow">Total tersimpan</div><div class="total"><span id="totalKm">0.0</span> <span>km</span></div><div id="count" style="font-size:13px;color:var(--muted)">Belum ada aktivitas</div></section>
@@ -60,6 +62,27 @@
     setInterval(()=>{if(startedAt){seconds=elapsed+Math.floor((Date.now()-startedAt)/1000);draw()}},1000);
     $('start').onclick=()=>watchId===null?start():pause(); $('sport').onchange=e=>$('activityTitle').textContent=e.target.value;
     $('reset').onclick=()=>{pause();elapsed=seconds=meters=0;points=[];path.setLatLngs([]);if(marker){map.removeLayer(marker);marker=null}$('start').textContent='Mulai GPS';$('mapHint').textContent='Izinkan lokasi untuk melihat rute GPS Anda di peta.';msg('Aktivitas baru siap direkam.');draw()};
+    $('story').onclick=()=>{$('storyBox').classList.toggle('show')};
+    function storyRoute(ctx){
+      if(points.length<2){ctx.beginPath();ctx.moveTo(145,830);ctx.bezierCurveTo(250,650,350,920,495,710);ctx.bezierCurveTo(590,570,690,760,825,590);ctx.stroke();return}
+      const lats=points.map(p=>p.lat),lngs=points.map(p=>p.lng),a=Math.min(...lats),b=Math.max(...lats),c=Math.min(...lngs),d=Math.max(...lngs),lat=b-a||.0001,lng=d-c||.0001;
+      ctx.beginPath();points.forEach((p,i)=>{const x=130+(p.lng-c)/lng*820,y=960-(p.lat-a)/lat*420;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();
+    }
+    $('generateStory').onclick=()=>{
+      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),img=new Image(),file=$('photo').files[0];canvas.width=1080;canvas.height=1920;
+      const make=()=>{
+        ctx.fillStyle='#111';ctx.fillRect(0,0,1080,1920);
+        if(img.src){const s=Math.max(1080/img.width,1920/img.height),w=img.width*s,h=img.height*s;ctx.drawImage(img,(1080-w)/2,(1920-h)/2,w,h)}
+        const g=ctx.createLinearGradient(0,0,0,1920);g.addColorStop(0,'rgba(0,0,0,.18)');g.addColorStop(.55,'rgba(0,0,0,.18)');g.addColorStop(1,'rgba(0,0,0,.92)');ctx.fillStyle=g;ctx.fillRect(0,0,1080,1920);
+        ctx.fillStyle='#fff';ctx.font='900 62px Arial';ctx.fillText('SPORT TRACKER',72,115);ctx.fillStyle='#fc4c02';ctx.fillRect(72,140,200,10);
+        ctx.strokeStyle='#fff';ctx.lineWidth=17;ctx.lineJoin='round';ctx.lineCap='round';storyRoute(ctx);
+        ctx.fillStyle='#fff';ctx.font='900 156px Arial';ctx.fillText((meters/1000).toFixed(2),72,1320);ctx.font='700 48px Arial';ctx.fillText('kilometer',78,1382);
+        ctx.font='800 39px Arial';ctx.fillText($('sport').value.toUpperCase(),76,1485);ctx.fillStyle='#ddd';ctx.font='500 35px Arial';ctx.fillText('Durasi  '+fmt(seconds)+'    Pace  '+(meters>20?fmt(Math.round(seconds/(meters/1000)))+'/km':'—'),76,1550);
+        ctx.fillStyle='#fc4c02';ctx.font='900 52px Arial';ctx.fillText('Aktivitas hari ini',76,1790);
+        canvas.toBlob(blob=>{const u=URL.createObjectURL(blob);$('downloadStory').href=u;$('downloadStory').style.display='inline';$('downloadStory').textContent='Unduh gambar PNG';msg('Story siap diunduh.');},'image/png');
+      };
+      if(file){img.onload=make;img.src=URL.createObjectURL(file)}else make();
+    };
     async function load(){
       try{const r=await fetch(SUPABASE_URL+'/rest/v1/aktivitas_olahraga?select=id,tanggal,jenis_olahraga,durasi_detik,jarak_meter&order=tanggal.desc&limit=10',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});if(!r.ok)throw 0;const a=await r.json(), total=a.reduce((s,x)=>s+Number(x.jarak_meter),0)/1000;$('totalKm').textContent=total.toFixed(1);$('count').textContent=a.length? a.length+' aktivitas tersimpan':'Belum ada aktivitas';$('history').innerHTML=a.length?a.map(x=>'<div class="activity"><div class="icon">↗</div><div><b>'+x.jenis_olahraga+'</b><small>'+new Date(x.tanggal).toLocaleDateString('id-ID',{dateStyle:'medium'})+' · '+fmt(x.durasi_detik)+'</small></div><div class="km">'+(Number(x.jarak_meter)/1000).toFixed(2)+' km</div></div>').join(''):'<div class="empty">Belum ada aktivitas tersimpan.</div>'}catch(e){$('history').innerHTML='<div class="empty">Database belum siap. Jalankan SQL Supabase terlebih dahulu.</div>'}
     }
