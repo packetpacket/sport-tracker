@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sport Tracker Agung</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{--orange:#fc4c02;--ink:#17222b;--muted:#65717b;--line:#e7e9ea;--bg:#f6f7f7}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Arial,sans-serif}
+    header{height:66px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 max(20px,calc((100vw - 1180px)/2));justify-content:space-between}
+    .brand{font-size:22px;font-weight:900;letter-spacing:-1.2px;color:var(--orange)} .brand span{color:var(--ink)}
+    .private{font-size:12px;font-weight:700;border-radius:99px;background:#fff1eb;color:#ca3e00;padding:8px 12px}
+    main{max-width:1180px;margin:34px auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(290px,.8fr);gap:24px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}.card-head{padding:22px 24px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+    h1{margin:3px 0 0;font-size:29px;letter-spacing:-1px} h2{font-size:17px;margin:0}.eyebrow{font-size:12px;color:var(--muted);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    select{font:inherit;font-weight:700;border:1px solid #d8dcde;border-radius:7px;padding:9px 11px;background:#fff}
+    #map{height:330px;background:#edf2f3}.map-hint{font-size:13px;color:var(--muted);padding:12px 24px;border-bottom:1px solid var(--line)}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)}.stat{padding:20px 24px;border-right:1px solid var(--line)}.stat:last-child{border:0}
+    .stat b{display:block;font-size:25px;letter-spacing:-1px;margin-top:5px}.stat small{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase}
+    .actions{padding:18px 24px;display:flex;gap:10px;align-items:center}.btn{border:0;border-radius:7px;padding:12px 17px;font-weight:800;font-size:14px;cursor:pointer}.btn.primary{background:var(--orange);color:#fff}.btn.secondary{background:#f1f3f4;color:var(--ink)}.btn:disabled{opacity:.55;cursor:not-allowed}
+    #notice{font-size:13px;color:var(--muted);padding:0 24px 20px;min-height:36px}.side{display:grid;gap:24px}.summary{padding:22px 24px}.total{font-size:43px;font-weight:900;letter-spacing:-2px;margin:8px 0 3px}.total span{font-size:19px;letter-spacing:0}
+    .history-head{padding:20px 22px 12px;display:flex;justify-content:space-between}.activity{padding:15px 22px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center}.icon{width:35px;height:35px;border-radius:50%;background:#fff1eb;color:var(--orange);display:grid;place-items:center;font-weight:900}.activity b{font-size:14px}.activity small{display:block;font-size:12px;color:var(--muted);margin-top:3px}.km{margin-left:auto;font-weight:800;font-size:14px}.empty{padding:20px 22px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+    .leaflet-control-attribution{font-size:10px!important}@media(max-width:780px){header{padding:0 18px}main{margin:20px auto;grid-template-columns:1fr;padding:0 12px}.card-head{padding:18px}h1{font-size:25px}#map{height:285px}.stat{padding:16px 12px}.stat b{font-size:20px}.actions{padding:15px 18px;flex-wrap:wrap}.actions .btn{flex:1}#notice{padding:0 18px 17px}}
+  </style>
+</head>
+<body>
+  <header><div class="brand">SPORT <span>TRACKER</span></div><div class="private">AKUN PRIBADI</div></header>
+  <main>
+    <section class="card">
+      <div class="card-head"><div><div class="eyebrow">Rekam aktivitas</div><h1 id="activityTitle">Lari</h1></div><select id="sport"><option>Lari</option><option>Jalan</option><option>Sepeda</option></select></div>
+      <div id="map"></div><div class="map-hint" id="mapHint">Izinkan lokasi untuk melihat rute GPS Anda di peta.</div>
+      <div class="stats"><div class="stat"><small>Durasi</small><b id="duration">00:00</b></div><div class="stat"><small>Jarak</small><b id="distance">0.00 km</b></div><div class="stat"><small>Pace</small><b id="pace">—</b></div></div>
+      <div class="actions"><button class="btn primary" id="start">Mulai GPS</button><button class="btn secondary" id="save">Simpan</button><button class="btn secondary" id="reset">Reset</button></div>
+      <div id="notice">Siap merekam aktivitas Anda.</div>
+    </section>
+    <aside class="side">
+      <section class="card summary"><div class="eyebrow">Total tersimpan</div><div class="total"><span id="totalKm">0.0</span> <span>km</span></div><div id="count" style="font-size:13px;color:var(--muted)">Belum ada aktivitas</div></section>
+      <section class="card"><div class="history-head"><h2>Riwayat aktivitas</h2><span class="eyebrow">Terbaru</span></div><div id="history"><div class="empty">Memuat aktivitas…</div></div></section>
+    </aside>
+  </main>
+  <script>
+    // Konfigurasi Supabase milik Anda
+    const SUPABASE_URL = 'https://pmvldqpfvjykuvayiqfk.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_bnejTV8w5EhoAdjluykADw_QDK-c0CE';
+    let map = L.map('map').setView([-8.65,115.22], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    let path = L.polyline([], {color:'#fc4c02',weight:5}).addTo(map), marker, watchId=null, startedAt=null, elapsed=0, seconds=0, meters=0, points=[];
+    const $=id=>document.getElementById(id), fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+    const hav=(a,b)=>{const r=Math.PI/180,x=Math.sin((b.lat-a.lat)*r/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin((b.lng-a.lng)*r/2)**2;return 12742000*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
+    function draw(){ $('duration').textContent=fmt(seconds);$('distance').textContent=(meters/1000).toFixed(2)+' km';$('pace').textContent=meters>20?fmt(Math.round(seconds/(meters/1000)))+' /km':'—';}
+    function msg(t){$('notice').textContent=t} function pause(){if(startedAt)elapsed+=Math.floor((Date.now()-startedAt)/1000);startedAt=null;if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;$('start').textContent='Lanjutkan GPS'}
+    function start(){
+      if(!navigator.geolocation)return msg('Browser ini belum mendukung GPS.');
+      startedAt=Date.now();$('start').textContent='Jeda';msg('GPS sedang merekam. Jaga halaman ini tetap terbuka.');
+      watchId=navigator.geolocation.watchPosition(p=>{const n={lat:p.coords.latitude,lng:p.coords.longitude,time:Date.now()},last=points.at(-1);if(last){const d=hav(last,n);if(d<150)meters+=d}points.push(n);path.setLatLngs(points);if(marker)marker.setLatLng(n);else marker=L.circleMarker(n,{radius:7,color:'#fff',weight:3,fillColor:'#fc4c02',fillOpacity:1}).addTo(map);map.setView(n,16);$('mapHint').textContent=points.length+' titik GPS direkam.';draw()},()=>msg('Aktifkan GPS dan izinkan lokasi di browser, lalu coba lagi.'),{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
+    }
+    setInterval(()=>{if(startedAt){seconds=elapsed+Math.floor((Date.now()-startedAt)/1000);draw()}},1000);
+    $('start').onclick=()=>watchId===null?start():pause(); $('sport').onchange=e=>$('activityTitle').textContent=e.target.value;
+    $('reset').onclick=()=>{pause();elapsed=seconds=meters=0;points=[];path.setLatLngs([]);if(marker){map.removeLayer(marker);marker=null}$('start').textContent='Mulai GPS';$('mapHint').textContent='Izinkan lokasi untuk melihat rute GPS Anda di peta.';msg('Aktivitas baru siap direkam.');draw()};
+    async function load(){
+      try{const r=await fetch(SUPABASE_URL+'/rest/v1/aktivitas_olahraga?select=id,tanggal,jenis_olahraga,durasi_detik,jarak_meter&order=tanggal.desc&limit=10',{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});if(!r.ok)throw 0;const a=await r.json(), total=a.reduce((s,x)=>s+Number(x.jarak_meter),0)/1000;$('totalKm').textContent=total.toFixed(1);$('count').textContent=a.length? a.length+' aktivitas tersimpan':'Belum ada aktivitas';$('history').innerHTML=a.length?a.map(x=>'<div class="activity"><div class="icon">↗</div><div><b>'+x.jenis_olahraga+'</b><small>'+new Date(x.tanggal).toLocaleDateString('id-ID',{dateStyle:'medium'})+' · '+fmt(x.durasi_detik)+'</small></div><div class="km">'+(Number(x.jarak_meter)/1000).toFixed(2)+' km</div></div>').join(''):'<div class="empty">Belum ada aktivitas tersimpan.</div>'}catch(e){$('history').innerHTML='<div class="empty">Database belum siap. Jalankan SQL Supabase terlebih dahulu.</div>'}
+    }
+    $('save').onclick=async()=>{
+      if(seconds<5)return msg('Rekam aktivitas terlebih dahulu sebelum menyimpan.');pause();$('save').disabled=true;
+      try{const b={jenis_olahraga:$('sport').value,judul:$('sport').value+' '+new Date().toLocaleDateString('id-ID'),durasi_detik:seconds,jarak_meter:Math.round(meters),pace_detik_per_km:meters>20?Math.round(seconds/(meters/1000)):null,rute:points};const r=await fetch(SUPABASE_URL+'/rest/v1/aktivitas_olahraga',{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(b)});if(!r.ok)throw 0;msg('Aktivitas berhasil disimpan.');await load()}catch(e){msg('Gagal menyimpan. Periksa tabel dan kebijakan akses Supabase.')}finally{$('save').disabled=false}
+    }; load();
+  </script>
+</body>
+</html>
